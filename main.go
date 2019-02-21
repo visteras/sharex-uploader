@@ -22,7 +22,7 @@ func init() {
 }
 func main() {
 	http.HandleFunc("/", upload)
-	log.Fatal(http.ListenAndServe(listen, h))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 var letterRunes = []rune("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
