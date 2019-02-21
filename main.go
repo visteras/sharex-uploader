@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -114,15 +115,18 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
 		return
 	}
 	jsonResponse(w, http.StatusCreated, Response{
-		URI:    "http://" + os.Getenv("VIRTUAL_HOST") + "/" + handle.Filename,
-		DelURI: "http://" + os.Getenv("VIRTUAL_HOST") + "/delete" + handle.Filename,
+		URI: "http://" + os.Getenv("VIRTUAL_HOST") + "/" + name,
+		//DelURI: "http://" + os.Getenv("VIRTUAL_HOST") + "/delete" + handle.Filename,
 	})
 }
 
 func jsonResponse(w http.ResponseWriter, code int, message Response) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	fmt.Fprint(w, message)
+	err := json.NewEncoder(w).Encode(&message)
+	if err != nil {
+		fmt.Fprintf(w, "%v", err)
+	}
 }
 
 type Response struct {
