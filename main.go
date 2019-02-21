@@ -1,4 +1,4 @@
-package sharex_uploader
+package main
 
 import (
 	"bytes"
