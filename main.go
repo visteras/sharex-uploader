@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -45,17 +45,19 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		parts := strings.Split(r.URL.RawPath, "/")
+		parts := strings.Split(r.URL.Path, "/")
 		path := "./files/" + parts[1]
 		e := false
-		if _, err := os.Stat(path); os.IsExist(err) {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			file, err := os.Open(path)
 			if err != nil {
 				e = true
+				fmt.Fprintf(w, "1. %v", err)
 			}
 			img, _, err := image.Decode(file)
 			if err != nil {
 				e = true
+				fmt.Fprintf(w, "2. %v", err)
 			} else {
 				writeImage(w, &img)
 			}
@@ -72,11 +74,11 @@ func upload(w http.ResponseWriter, r *http.Request) {
 func writeImage(w http.ResponseWriter, img *image.Image) {
 
 	buffer := new(bytes.Buffer)
-	if err := jpeg.Encode(buffer, *img, nil); err != nil {
+	if err := png.Encode(buffer, *img); err != nil {
 		log.Println("unable to encode image.")
 	}
 
-	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
 	if _, err := w.Write(buffer.Bytes()); err != nil {
 		log.Println("unable to write image.")
@@ -86,7 +88,7 @@ func writeImage(w http.ResponseWriter, img *image.Image) {
 func UploadFile(w http.ResponseWriter, r *http.Request) {
 	file, handle, err := r.FormFile("data")
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
+		fmt.Fprintf(w, "0. %v", err)
 		return
 	}
 	defer file.Close()
@@ -96,7 +98,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.FileHeader) {
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
+		fmt.Fprintf(w, "3. %v", err)
 		return
 	}
 
@@ -111,7 +113,7 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
 
 	err = ioutil.WriteFile("./files/"+name, data, 0666)
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
+		fmt.Fprintf(w, "4. %v", err)
 		return
 	}
 	jsonResponse(w, http.StatusCreated, Response{
