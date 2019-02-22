@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"io/ioutil"
 	"log"
@@ -57,24 +52,18 @@ func upload(w http.ResponseWriter, r *http.Request) {
 				e = true
 				fmt.Fprintf(w, "1. %v", err)
 			}
-			img, _, err := image.Decode(file)
-			if err != nil {
+
+			buff := make([]byte, 512)
+			file.Seek(0, 0)
+			_, err = file.Read(buff)
+			file.Seek(0, 0)
+
+			if err != nil && err != io.EOF {
 				e = true
-				fmt.Fprintf(w, "2. %v", err)
+				fmt.Fprintf(w, "5. %v", err)
 			} else {
-
-				buff := make([]byte, 512)
-				file.Seek(0, 0)
-				_, err = file.Read(buff)
-				file.Seek(0, 0)
-
-				if err != nil && err != io.EOF {
-					e = true
-					fmt.Fprintf(w, "5. %v", err)
-				} else {
-					contentType := http.DetectContentType(buff)
-					writeImage(w, &img, contentType)
-				}
+				contentType := http.DetectContentType(buff)
+				writeImage(w, file, contentType)
 			}
 		} else {
 			e = true
@@ -86,32 +75,20 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func writeImage(w http.ResponseWriter, img *image.Image, mime string) {
-
-	buffer := new(bytes.Buffer)
-
-	switch mime {
-	case "image/jpeg":
-		if err := jpeg.Encode(buffer, *img, &jpeg.Options{Quality: 85}); err != nil {
-			log.Println("unable to encode image.")
-		}
-	case "image/png":
-		if err := png.Encode(buffer, *img); err != nil {
-			log.Println("unable to encode image.")
-		}
-	case "image/gif":
-		//FIXME in current time return first frame only
-		if err := gif.Encode(buffer, *img, &gif.Options{}); err != nil {
-			log.Println("unable to encode image.")
-		}
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
+func writeImage(w http.ResponseWriter, file *os.File, mime string) {
 
 	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
-	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Println("unable to write image.")
+	fi, err := file.Stat()
+	if err != nil {
+		log.Println("cant read file size")
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		buff := make([]byte, fi.Size())
+		file.Read(buff)
+		w.Header().Set("Content-Length", strconv.Itoa(len(buff)))
+		if _, err := w.Write(buff); err != nil {
+			log.Println("unable to write image.")
+		}
 	}
 }
 
