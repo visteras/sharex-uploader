@@ -10,7 +10,7 @@ FROM alpine
 
 RUN mkdir -p /app/files
 
-COPY --from=builder /go/src/github.com/Visteras/sharex-uploader /app/sharex-uploader
+COPY --from=builder /go/src/github.com/Visteras/sharex-uploader/sharex-uploader /app/sharex-uploader
 RUN chmod +x /app/sharex-uploader
 
 WORKDIR /app
