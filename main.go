@@ -100,6 +100,7 @@ func writeImage(w http.ResponseWriter, img *image.Image, mime string) {
 			log.Println("unable to encode image.")
 		}
 	case "image/gif":
+		//FIXME in current time return first frame only
 		if err := gif.Encode(buffer, *img, &gif.Options{}); err != nil {
 			log.Println("unable to encode image.")
 		}
