@@ -12,7 +12,7 @@ RUN mkdir -p /app/files
 
 COPY --from=builder /go/src/github.com/Visteras/sharex-uploader/sharex-uploader /app/sharex-uploader
 RUN chmod +x /app/sharex-uploader
-EXPOSE 8080
+EXPOSE 3000
 WORKDIR /app
 
 CMD ["/app/sharex-uploader"]
