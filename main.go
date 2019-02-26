@@ -18,12 +18,12 @@ import (
 )
 
 type route struct {
-	pattern	*regexp.Regexp
-	handler	http.Handler
+	pattern *regexp.Regexp
+	handler http.Handler
 }
 
 type RegexpHandler struct {
-	routes	[]*route
+	routes []*route
 }
 
 func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler http.Handler) {
@@ -71,62 +71,6 @@ func RandStringRunes(n int) string {
 	}
 	return string(b)
 }
-
-//func upload(w http.ResponseWriter, r *http.Request) {
-//
-//	if r.Method == http.MethodPost {
-//		UploadFile(w, r)
-//	}
-//
-//	if r.Method == http.MethodGet {
-//		parts := strings.Split(r.URL.Path, "/")
-//		path := "./files/" + parts[1]
-//		e := false
-//		if _, err := os.Stat(path); !os.IsNotExist(err) {
-//			file, err := os.Open(path)
-//			if err != nil {
-//				e = true
-//				fmt.Fprintf(w, "1. %v", err)
-//			}
-//
-//			buff := make([]byte, 512)
-//			file.Seek(0, 0)
-//			_, err = file.Read(buff)
-//			file.Seek(0, 0)
-//
-//			if err != nil && err != io.EOF {
-//				e = true
-//				fmt.Fprintf(w, "5. %v", err)
-//			} else {
-//				contentType := http.DetectContentType(buff)
-//				writeImage(w, file, contentType)
-//			}
-//		} else {
-//			e = true
-//		}
-//		if e == true {
-//			w.WriteHeader(404)
-//		}
-//	}
-//
-//}
-
-//func writeImage(w http.ResponseWriter, file *os.File, mime string) {
-//
-//	w.Header().Set("Content-Type", mime)
-//	fi, err := file.Stat()
-//	if err != nil {
-//		log.Println("cant read file size")
-//		w.WriteHeader(http.StatusInternalServerError)
-//	} else {
-//		buff := make([]byte, fi.Size())
-//		file.Read(buff)
-//		w.Header().Set("Content-Length", strconv.Itoa(len(buff)))
-//		if _, err := w.Write(buff); err != nil {
-//			log.Println("unable to write image.")
-//		}
-//	}
-//}
 
 func UploadFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
@@ -212,7 +156,7 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
 		}
 	}
 
-	err = ioutil.WriteFile("./files/" + fileName, data, 0666)
+	err = ioutil.WriteFile("./files/"+fileName, data, 0666)
 	if err != nil {
 		log.Printf("Can't write file \"%s\": %v", fileName, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

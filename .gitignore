@@ -13,6 +13,7 @@
 
 # JetBrains IDE Project Files
 .idea
+.idea/*
 
 # Testing files and directories
 build
