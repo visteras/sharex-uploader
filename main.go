@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -37,7 +37,12 @@ func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, handler func(http.Res
 func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range h.routes {
 		if route.pattern.MatchString(r.URL.Path) {
-			log.Printf("Request URI %s\n", r.URL.Path)
+			log.WithFields(log.Fields{
+				"URI":        r.URL.Path,
+				"IP":         RemoteAddr(r),
+				"User-Agent": r.Header.Get("User-Agent"),
+				"Referer":    r.Header.Get("Referer"),
+			}).Info("Request URI")
 			route.handler.ServeHTTP(w, r)
 			return
 		}
@@ -46,10 +51,36 @@ func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
+func RemoteAddr(r *http.Request) string {
+
+	addr := r.Header.Get("X-Real-IP")
+	if len(addr) == 0 {
+		addr = r.Header.Get("X-Forwarded-For")
+		if addr == "" {
+			addr = r.RemoteAddr
+			if i := strings.LastIndex(addr, ":"); i > -1 {
+				addr = addr[:i]
+			}
+		}
+	}
+	return addr
+}
+
 var VirtualHost string
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	// Log as JSON instead of the default ASCII formatter.
+	log.SetFormatter(&log.JSONFormatter{})
+
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
+
+	// Only log the warning severity or above.
+	log.SetLevel(log.InfoLevel)
+
+	log.Info("Start Sharex Uploader")
 }
 
 func main() {
@@ -58,8 +89,9 @@ func main() {
 	handler.HandleFunc(regexp.MustCompile(`\/upload`), UploadFile)
 	handler.HandleFunc(regexp.MustCompile(`\/[a-zA-Z0-9]{16}\.(.*)`), ShowFile)
 
-	//http.HandleFunc("/", upload)
-	log.Fatal(http.ListenAndServe(":3000", handler))
+	log.WithFields(log.Fields{
+		"VirtualHost": VirtualHost,
+	}).Fatal(http.ListenAndServe(":3000", handler))
 }
 
 var letterRunes = []rune("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -73,10 +105,15 @@ func RandStringRunes(n int) string {
 }
 
 func UploadFile(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method == http.MethodPost {
 		file, handle, err := r.FormFile("data")
 		if err != nil {
-			log.Println("Can't get file in the request")
+			log.WithFields(log.Fields{
+				"URI":   r.URL.Path,
+				"IP":    RemoteAddr(r),
+				"Error": err,
+			}).Info("Can't get file in the request")
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -112,14 +149,26 @@ func ShowFile(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", http.DetectContentType(buff))
 					fi, err := file.Stat()
 					if err != nil {
-						log.Printf("Can't read file size: %v\n", fi.Name())
+						log.WithFields(log.Fields{
+							"File": log.Fields{
+								"Filename": file.Name(),
+							},
+							"Error": err,
+						}).Warn("Can't read file size")
 						w.WriteHeader(http.StatusInternalServerError)
 					} else {
 						buff := make([]byte, fi.Size())
 						file.Read(buff)
 						w.Header().Set("Content-Length", strconv.Itoa(len(buff)))
 						if _, err := w.Write(buff); err != nil {
-							log.Printf("Unable to write file in response: %v\n", fi.Name())
+							log.WithFields(log.Fields{
+								"Response": log.Fields{
+									"Filename": fi.Name(),
+									"Size":     fi.Size(),
+									"Mod":      fi.Mode().String(),
+								},
+								"Error": err,
+							}).Warn("Unable to write file in response")
 							w.WriteHeader(http.StatusInternalServerError)
 						}
 					}
@@ -139,7 +188,14 @@ func ShowFile(w http.ResponseWriter, r *http.Request) {
 func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.FileHeader) {
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		log.Printf("Can't read temporary file: %v\n", err)
+		log.WithFields(log.Fields{
+			"Handle": log.Fields{
+				"Filename": handle.Filename,
+				"Size":     handle.Size,
+				"Headers":  handle.Header,
+			},
+			"Error": err,
+		}).Warn("Can't read temporary file")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -158,7 +214,14 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
 
 	err = ioutil.WriteFile("./files/"+fileName, data, 0666)
 	if err != nil {
-		log.Printf("Can't write file \"%s\": %v", fileName, err)
+		log.WithFields(log.Fields{
+			"File": log.Fields{
+				"Filename": fileName,
+				"Name":     name,
+				"Type":     fileType,
+			},
+			"Error": err,
+		}).Error("Can't write file")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -173,6 +236,11 @@ func jsonResponse(w http.ResponseWriter, code int, message Response) {
 	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(&message)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"Message": message,
+			"Code":    code,
+			"Error":   err,
+		}).Error("Json Response")
 		log.Println(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
